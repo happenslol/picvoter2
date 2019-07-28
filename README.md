@@ -1,35 +1,76 @@
-# Welcome to Buffalo!
+# picvoter2
 
-Thank you for choosing Buffalo for your web development needs.
+First, you should install buffalo:
 
-## Database Setup
+```
+go get -u -v github.com/gobuffalo/buffalo/buffalo
+go get github.com/gobuffalo/pop/...
+```
 
-It looks like you chose to set up your application using a database! Fantastic!
+Make sure `$GOPATH/bin` is in your `PATH` so you can use the buffalo binaries. Next, create the following directories:
 
-The first thing you need to do is open up the "database.yml" file and edit it to use the correct usernames, passwords, hosts, etc... that are appropriate for your environment.
+```
+# choose a directory where imported and processed images will be stored
+mkdir storage
+cd storage
+mkdir static && mkdir imports
+```
 
-You will also need to make sure that **you** start/install the database of your choice. Buffalo **won't** install and start it for you.
+Set the following env vars:
 
-### Create Your Databases
+```
+# make sure go uses dependency management
+GO111MODULE=on
 
-Ok, so you've edited the "database.yml" file and started your database, now Buffalo can create the databases in that file for you:
+# the location you just created
+STORAGE_LOCATION=storage
 
-	$ buffalo pop create -a
+# wherever you want to import from
+SCAN_LOCATIONS=/media/USB,/dev/sdb1
+```
 
-## Starting the Application
+Now, run `yarn install`, and then `go get`.
 
-Buffalo ships with a command that will watch your application and automatically rebuild the Go binary and any assets for you. To do that run the "buffalo dev" command:
+Migrate the database:
 
-	$ buffalo dev
+```
+soda create -a
+soda migrate
+```
 
-If you point your browser to [http://127.0.0.1:3000](http://127.0.0.1:3000) you should see a "Welcome to Buffalo!" page.
+At this point, you can start the server. To import images, use an http client like curl, httpie or postman, and do the following:  
+(all requests have json formatted payload, `picvoter` represents the url of the service, if it's local it would be `localhost:3000`)
 
-**Congratulations!** You now have your Buffalo application up and running.
+```
+http GET picvoter/imports/candidates
+```
 
-## What Next?
+This will show a list of folders that were found in your scan locations. Imagine you have a USB stick that will automatically be mounted at `/media/USB`, which you have in your scan locations. This USB stick contains the folders `Fotos Tag 1` and `Fotos Tag 2`, which will result in the following response:
 
-We recommend you heading over to [http://gobuffalo.io](http://gobuffalo.io) and reviewing all of the great documentation there.
+```
+{
+    "/media/USB": [
+        "Fotos Tag 1",
+        "Fotos Tag 2",
+    ],
+}
+```
 
-Good luck!
+If you want to import one of these, do the following request:
 
-[Powered by Buffalo](http://gobuffalo.io)
+```
+http POST picvoter/imports
+{
+    "location": "/media/USB",
+    "directory": "Fotos Tag 1",
+    "author": "Mein Name"
+}
+```
+
+This will copy the photos from the scan location to the storage location and create an entry in the database. However, since these photos are probably full size they will need to be processed before they'll be served. It's recommended to do this at night, since the processing is done concurrenctly and takes a lot of resources, which totally killed our raspberry pi. To run the processing task, do the following:
+
+```
+buffalo task imports:process
+```
+
+This will process all pending imports and make the photos available.

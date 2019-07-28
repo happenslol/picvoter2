@@ -12,6 +12,9 @@ import (
 	i18n "github.com/gobuffalo/mw-i18n"
 	"github.com/gobuffalo/packr/v2"
 	"github.com/happenslol/picvoter2/models"
+
+    "fmt"
+    "net/http"
 )
 
 // ENV is used to help switch settings based on where the
@@ -40,9 +43,6 @@ func App() *buffalo.App {
 			SessionName: "_picvoter2_session",
 		})
 
-		// Automatically redirect to SSL
-		app.Use(forceSSL())
-
 		// Log request parameters (filters apply).
 		app.Use(paramlogger.ParameterLogger)
 
@@ -60,6 +60,18 @@ func App() *buffalo.App {
 
 		app.GET("/", HomeHandler)
 
+		app.GET("/admin", AdminIndex)
+		app.GET("/imports/candidates", ImportsCandidates)
+		app.POST("/imports", ImportsCreate)
+		app.POST("/pictures/{pictureId}/votes", VotesCreate)
+		app.POST("/pictures/{pictureId}", SetCensorStatus)
+		app.GET("/pictures/hot", PicturesHot)
+		app.GET("/pictures/next", PicturesNext)
+		app.GET("/stats", RenderStatsPage)
+
+		staticDir := fmt.Sprintf("%s/static", storagePath)
+
+		app.ServeFiles("/static", http.Dir(staticDir))
 		app.ServeFiles("/", assetsBox) // serve files from the public directory
 	}
 
